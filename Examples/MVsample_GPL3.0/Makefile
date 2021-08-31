@@ -21,8 +21,8 @@ OBJS 	= csr_complex.o utils.o practice.o
 all	: mytest
 
 mytest	: $(OBJS)
-	$(CC) -o spmv $(CCFLAGS) $(OBJS)
-	$(CC) -o spmv.numa -DNUMA $(CCFLAGS) $(OBJS) 
+	$(CC) -o spmv $(CCFLAGS) $(OBJS)  -lnuma
+	$(CC) -o spmv.numa -DNUMA $(CCFLAGS) $(OBJS)  -lnuma
 #	cp spmv ../Runs/
 
 clean :
