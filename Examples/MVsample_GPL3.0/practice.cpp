@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "utils.hpp"
+#include <numa.h>
 #include "csr_complex.hpp"
 
 int main(int argc, char **argv) {
@@ -50,6 +51,7 @@ int main(int argc, char **argv) {
 	count = 0;
 
 #ifdef NUMA
+	printf("max node %d\n", numa_max_node());
 	#pragma omp parallel for schedule(static)
 #endif
 // first touch initialization.
