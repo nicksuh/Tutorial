@@ -22,6 +22,7 @@ all	: mytest
 
 mytest	: $(OBJS)
 	$(CC) -o spmv $(CCFLAGS) $(OBJS)
+	$(CC) -o spmv.numa -DNUMA $(CCFLAGS) $(OBJS) 
 #	cp spmv ../Runs/
 
 clean :

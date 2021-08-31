@@ -49,6 +49,10 @@ int main(int argc, char **argv) {
 	YI = new double[mysize]();
 	count = 0;
 
+#ifdef NUMA
+	#pragma omp parallel for schedule(static)
+#endif
+// first touch initialization.
 	for(int ii = localfirst; ii <= localend; ii++)
 	{
 		VR[ii] = double(rand())/RAND_MAX;
@@ -93,9 +97,13 @@ int main(int argc, char **argv) {
 
 	for(int ii = 0; ii < niter; ii++)
 	{
+
 		printf("DMV at iteration %d\n", ii+1);
+		double start = omp_get_wtime();
 		dmv(dmatrixR, dmatrixI, YR, YI, WR, WI, DIM);
 		dmv(dmatrixR, dmatrixI, WR, WI, YR, YI, DIM);
+		double end = omp_get_wtime();	
+		printf("DMV iter took %f seconds\n", end - start);
 	}
 
 	fp = fopen("./result/dmv_output.dat","wt");

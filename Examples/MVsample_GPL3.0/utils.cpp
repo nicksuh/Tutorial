@@ -17,6 +17,9 @@
 
 void convert(double *dmatrix_R, double *dmatrix_I, int *index_i, int *index_j, double *nz_R, double *nz_I, int DIM)
 {
+#ifdef NUMA
+	#pragma omp parallel for schedule(static)
+#endif
 	for(unsigned int i = 0; i < DIM; i++)
 	{
 		const unsigned int nSubStart = index_i[i];
@@ -38,7 +41,7 @@ void dmv(double *dmatrix_R, double *dmatrix_I, double *xR, double *xI, double *y
 {
 	int mysize = DIM;
 
-        #pragma omp parallel for 
+        #pragma omp parallel for schedule(static)
         for(unsigned int i = 0; i < mysize; i++)
         {
                 double real_sum = 0.0;
