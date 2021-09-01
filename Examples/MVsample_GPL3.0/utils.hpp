@@ -25,8 +25,10 @@
 #include "csr_complex.hpp"
 
 void convert(double*, double*, int*, int*, double*, double*, int);
+void convertNuma(double **dmatrix_R, double **dmatrix_I, int *index_i, int *index_j, double *nz_R, double *nz_I, int DIM);
 void load(int*, int*, double*, double*, char*, char*, char*);
 void dmv(double*, double*, double*, double*, double*, double*, int);
+void dmvNuma(double **dmatrix_R, double **dmatrix_I, double *xR, double *xI, double *yR, double *yI, int DIM);
 void spmv(CSRComplex*, double*, double*, double*, double*);
 void dump_dmatrix(double*, double*, int, char*);
 

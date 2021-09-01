@@ -18,7 +18,11 @@
 #include <math.h>
 #include "utils.hpp"
 #include <numa.h>
+#include <sched.h>
 #include "csr_complex.hpp"
+
+
+#define NODE_COUNT 2
 
 int main(int argc, char **argv) {
 
@@ -50,10 +54,6 @@ int main(int argc, char **argv) {
 	YI = new double[mysize]();
 	count = 0;
 
-#ifdef NUMA
-	printf("max node %d\n", numa_max_node());
-	#pragma omp parallel for schedule(static)
-#endif
 // first touch initialization.
 	for(int ii = localfirst; ii <= localend; ii++)
 	{
@@ -91,21 +91,49 @@ int main(int argc, char **argv) {
 		fprintf(fp, "%18.6e    %18.6e\n", VR[ii], VI[ii]);
 	fclose(fp); 
 
-	dmatrixR = new double[mysize*mysize]();
-	dmatrixI = new double[mysize*mysize]();
 
-	convert(dmatrixR, dmatrixI, row_ptr, col_ind, nzeroR, nzeroI, DIM);
+
+	#ifdef NUMA
+		double *dmatrixR_onNode[NODE_COUNT];
+		double *dmatrixI_onNode[NODE_COUNT];
+		#pragma omp parallel proc_bind(spread) num_threads(NODE_COUNT)
+		{
+			int cpu = sched_getcpu();
+			int node = numa_node_of_cpu(cpu);
+			int chunkSize = (mysize*mysize) / NODE_COUNT;
+			double * chunkR = (double * )numa_alloc_onnode(chunkSize * sizeof(double), node);
+			double * chunkI = (double * )numa_alloc_onnode(chunkSize * sizeof(double), node);
+			dmatrixR_onNode[node] = chunkR;
+			dmatrixI_onNode[node] = chunkI;
+		}
+		convertNuma(dmatrixR_onNode, dmatrixI_onNode, row_ptr, col_ind, nzeroR, nzeroI, DIM);
+	#else
+		dmatrixR = new double[mysize*mysize]();
+		dmatrixI = new double[mysize*mysize]();
+		convert(dmatrixR, dmatrixI, row_ptr, col_ind, nzeroR, nzeroI, DIM);
+
+	#endif
+
 	//dump_dmatrix(dmatrixR, dmatrixI, DIM, "./result/dmatrix.dat");
 
 	for(int ii = 0; ii < niter; ii++)
 	{
 
+	#ifdef NUMA
+		printf("DMV NUMA at iteration %d\n", ii+1);
+		double start = omp_get_wtime();
+		dmvNuma(dmatrixR_onNode, dmatrixI_onNode, YR, YI, WR, WI, DIM);
+		dmvNuma(dmatrixR_onNode, dmatrixI_onNode, WR, WI, YR, YI, DIM);
+		double end = omp_get_wtime();	
+		printf("DMV NUMA iter took %f seconds\n", end - start);
+	#else
 		printf("DMV at iteration %d\n", ii+1);
 		double start = omp_get_wtime();
 		dmv(dmatrixR, dmatrixI, YR, YI, WR, WI, DIM);
 		dmv(dmatrixR, dmatrixI, WR, WI, YR, YI, DIM);
 		double end = omp_get_wtime();	
 		printf("DMV iter took %f seconds\n", end - start);
+	#endif
 	}
 
 	fp = fopen("./result/dmv_output.dat","wt");
@@ -113,8 +141,20 @@ int main(int argc, char **argv) {
 		fprintf(fp, "%18.6e    %18.6e\n", YR[ii], YI[ii]);
 	fclose(fp);
 
-	delete [] dmatrixI;
-	delete [] dmatrixR;
+	#ifdef NUMA
+		int chunkSize = (mysize*mysize) / NODE_COUNT;
+		for(int i = 0; i < NODE_COUNT; i++)
+		{
+			size_t size = chunkSize * sizeof(double);
+			double * tmpR= dmatrixR_onNode[i];
+			numa_free(tmpR,size);
+			double * tmpI= dmatrixI_onNode[i];
+			numa_free(tmpI,size);
+		}
+	#else
+		delete [] dmatrixI;
+		delete [] dmatrixR;
+	#endif
 
 	delete smatrix;	
 	delete [] nzeroI;

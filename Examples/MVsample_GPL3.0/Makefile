@@ -30,6 +30,6 @@ clean :
 
 .SUFFIXES : .cpp .o
 
-.cpp.o:   ; $(CC) -c $(CCFLAGS) $(INC) $?
+.cpp.o:   ; $(CC) -c -DNUMA -lnuma $(CCFLAGS) $(INC) $?
 
 

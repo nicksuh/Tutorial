@@ -14,6 +14,11 @@
 //-------------------------------------------------------------------------------------------------------------------------
 
 #include "utils.hpp"
+#include <numa.h>
+#include <sched.h>
+
+#define NODE_COUNT 2
+
 
 void convert(double *dmatrix_R, double *dmatrix_I, int *index_i, int *index_j, double *nz_R, double *nz_I, int DIM)
 {
@@ -37,6 +42,36 @@ void convert(double *dmatrix_R, double *dmatrix_I, int *index_i, int *index_j, d
 	}
 }
 
+void convertNuma(double **dmatrix_R, double **dmatrix_I, int *index_i, int *index_j, double *nz_R, double *nz_I, int DIM)
+{
+	#pragma omp parallel proc_bind(spread) num_threads(NODE_COUNT)
+	{
+		int cpu = sched_getcpu();
+		int node = numa_node_of_cpu(cpu);
+		int chunkSize = (DIM*DIM) / NODE_COUNT;
+
+		for(unsigned int i = node * (DIM/ NODE_COUNT); i < DIM; i++)
+		{
+			const unsigned int nSubStart = index_i[i];
+			const unsigned int nSubEnd = index_i[i+1];
+					
+			for(unsigned int j = nSubStart; j < nSubEnd; j++)
+			{
+				const unsigned int nColIndex = index_j[j];
+				const double m_real = nz_R[j];
+				const double m_imaginary = nz_I[j];
+
+				double * chunkR = dmatrix_R[(i*DIM + nColIndex) / chunkSize];
+				double * chunkI = dmatrix_I[(i*DIM + nColIndex) / chunkSize];
+
+				chunkR[(i*DIM + nColIndex) % chunkSize] = m_real;
+				chunkI[(i*DIM + nColIndex) % chunkSize] = m_imaginary;                        
+			}
+		}
+	}
+}
+
+
 void dmv(double *dmatrix_R, double *dmatrix_I, double *xR, double *xI, double *yR, double *yI, int DIM)
 {
 	int mysize = DIM;
@@ -56,6 +91,43 @@ void dmv(double *dmatrix_R, double *dmatrix_I, double *xR, double *xI, double *y
                 yR[i] = real_sum;
                 yI[i] = imaginary_sum;
         }
+	
+}
+
+
+
+void dmvNuma(double **dmatrix_R, double **dmatrix_I, double *xR, double *xI, double *yR, double *yI, int DIM)
+{
+	int mysize = DIM;
+
+		#pragma omp parallel proc_bind(spread) num_threads(NODE_COUNT)
+		{
+			int cpu = sched_getcpu();
+			int node = numa_node_of_cpu(cpu);
+			int chunkSize = (mysize*mysize) / NODE_COUNT;
+
+			#pragma omp parallel proc_bind(close) num_threads(4)
+			for(unsigned int i = node * (mysize/NODE_COUNT); i < mysize; i++)
+			{
+					double real_sum = 0.0;
+					double imaginary_sum = 0.0;
+
+					for(unsigned int j = 0; j < mysize; j++)
+					{
+							double * chunkR = dmatrix_R[node];
+							double * chunkI = dmatrix_I[node];
+
+							real_sum += chunkR[(i*DIM + j) % chunkSize] * xR[j] - chunkI[(i*DIM + j) % chunkSize] * xI[j];
+							imaginary_sum += chunkR[(i*DIM + j) % chunkSize] * xI[j] + chunkI[(i*DIM + j) % chunkSize] * xR[j];
+					}
+
+					yR[i] = real_sum;
+					yI[i] = imaginary_sum;
+			}
+		}
+
+
+
 	
 }
 
