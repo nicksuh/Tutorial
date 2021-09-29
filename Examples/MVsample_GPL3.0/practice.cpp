@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 	#ifdef NUMA
 		double *dmatrixR_onNode[NODE_COUNT];
 		double *dmatrixI_onNode[NODE_COUNT];
-		#pragma omp parallel proc_bind(spread) num_threads(NODE_COUNT)
+		#pragma omp parallel proc_bind(close) num_threads(NODE_COUNT)
 		{
 			int cpu = sched_getcpu();
 			int node = numa_node_of_cpu(cpu);
