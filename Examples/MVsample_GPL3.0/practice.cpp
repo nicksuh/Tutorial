@@ -13,6 +13,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 //-------------------------------------------------------------------------------------------------------------------------
 
+#include <hwloc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -25,6 +26,20 @@
 #define NODE_COUNT 2
 
 int main(int argc, char **argv) {
+
+	hwloc_topology_t topology;
+	int ncores;
+
+	hwloc_topology_init(&topology);
+	hwloc_topology_load(topology);
+
+	ncores = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+	printf("Number of cores: %d\n", ncores);
+
+	int nnuma = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
+	printf("Number of numa nodes : %d\n", nnuma);
+
+
 
 	int nnz = 0;
 	int *row_ptr, *col_ind;
@@ -96,15 +111,16 @@ int main(int argc, char **argv) {
 	#ifdef NUMA
 		double *dmatrixR_onNode[NODE_COUNT];
 		double *dmatrixI_onNode[NODE_COUNT];
-		#pragma omp parallel proc_bind(close) num_threads(NODE_COUNT)
-		{
+
+		nnuma = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
+		for(int i = 0; i < nnuma; i++){
 			int cpu = sched_getcpu();
 			int node = numa_node_of_cpu(cpu);
-			int chunkSize = (mysize*mysize) / NODE_COUNT;
+			int chunkSize = (mysize*mysize) / nnuma;
 			double * chunkR = (double * )numa_alloc_onnode(chunkSize * sizeof(double), node);
 			double * chunkI = (double * )numa_alloc_onnode(chunkSize * sizeof(double), node);
 			dmatrixR_onNode[node] = chunkR;
-			dmatrixI_onNode[node] = chunkI;
+			dmatrixI_onNode[node] = chunkI
 		}
 		convertNuma(dmatrixR_onNode, dmatrixI_onNode, row_ptr, col_ind, nzeroR, nzeroI, DIM);
 	#else
@@ -167,6 +183,7 @@ int main(int argc, char **argv) {
 	delete [] VR;
 	delete [] WI;
 	delete [] WR;
+	hwloc_topology_destroy(topology);
 
 	printf("Memory: Deallocated.\n");
 

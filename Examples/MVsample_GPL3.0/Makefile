@@ -20,16 +20,18 @@ OBJS 	= csr_complex.o utils.o practice.o
 
 all	: mytest
 
-mytest	: $(OBJS)
-	$(CC) -o spmv $(CCFLAGS) $(OBJS)  -lnuma
-	$(CC) -o spmv.numa -DNUMA $(CCFLAGS) $(OBJS)  -lnuma
+numa : $(OBJS)
+	$(CC) -o spmv -DNUMA $(CCFLAGS) $(OBJS)  -lnuma  -lhwloc
 #	cp spmv ../Runs/
 
+# notNuma : $(OBJS)
+# 	$(CC) -o spmv.numa $(CCFLAGS) $(OBJS)  -lnuma -lhwloc
+
 clean :
-	rm -rf *.o spmv ./result
+	rm -rf *.o spmv spmv.numa ./result
 
 .SUFFIXES : .cpp .o
 
-.cpp.o:   ; $(CC) -c -DNUMA -lnuma $(CCFLAGS) $(INC) $?
+.cpp.o:   ; $(CC) -c -DNUMA -lnuma -lhwloc $(CCFLAGS) $(INC) $?
 
 
